@@ -1,4 +1,4 @@
-export async function fetchNearbyRestaurants(location: google.maps.LatLngLiteral): Promise<any[]> {
+export const fetchNearbyRestaurants = async (location: google.maps.LatLngLiteral, filterType: 'all' | 'restaurant' | 'cafe' = 'all'): Promise<any[]> => {
     if (!window.google?.maps?.places) {
       throw new Error('Google Maps Places API not loaded. Make sure the script is loaded correctly.');
     }
@@ -8,8 +8,14 @@ export async function fetchNearbyRestaurants(location: google.maps.LatLngLiteral
     // First, try the new Places API (New) searchNearby
     // Note: The new API might not be available in the JS SDK yet, or might require different setup
     if (typeof placesApi.searchNearby === 'function') {
+      const includedTypes = filterType === 'all' 
+        ? ['restaurant', 'cafe']
+        : filterType === 'restaurant'
+        ? ['restaurant']
+        : ['cafe'];
+      
       const request = {
-        includedTypes: ['restaurant'],
+        includedTypes,
         maxResultCount: 20,
         locationRestriction: {
           center: location,
@@ -38,47 +44,75 @@ export async function fetchNearbyRestaurants(location: google.maps.LatLngLiteral
         const map = new google.maps.Map(document.createElement('div'));
         const service = new placesApi.PlacesService(map);
 
-        const request: google.maps.places.PlaceSearchRequest = {
-          location,
-          radius: 500,
-          type: 'restaurant',
-        };
+        // Search for restaurants and/or cafes based on filter (legacy API requires separate calls)
+        const searchTypes = filterType === 'all' 
+          ? ['restaurant', 'cafe']
+          : filterType === 'restaurant'
+          ? ['restaurant']
+          : ['cafe'];
+        const allResults: any[] = [];
+        let completedSearches = 0;
+        let hasError = false;
 
-        service.nearbySearch(request, (results: any, status: any) => {
-          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            // Fetch additional details for each place to get more information
-            // Note: This makes additional API calls, but provides more detailed data
-            const detailPromises = results.map((place: any) => {
-              return new Promise<any>((detailResolve) => {
-                if (!place.place_id) {
+        const processResults = (results: any[]) => {
+          // Fetch additional details for each place to get more information
+          // Note: This makes additional API calls, but provides more detailed data
+          const detailPromises = results.map((place: any) => {
+            return new Promise<any>((detailResolve) => {
+              if (!place.place_id) {
+                detailResolve(place);
+                return;
+              }
+              
+              const detailRequest = {
+                placeId: place.place_id,
+                fields: ['name', 'rating', 'user_ratings_total', 'formatted_address', 'vicinity', 'types', 'editorial_summary', 'price_level', 'opening_hours', 'reviews'],
+              };
+
+              service.getDetails(detailRequest, (placeDetails: any, detailStatus: any) => {
+                if (detailStatus === google.maps.places.PlacesServiceStatus.OK && placeDetails) {
+                  // Merge additional details with original result
+                  detailResolve({ ...place, ...placeDetails });
+                } else {
                   detailResolve(place);
-                  return;
                 }
-                
-                const detailRequest = {
-                  placeId: place.place_id,
-                  fields: ['name', 'rating', 'user_ratings_total', 'formatted_address', 'vicinity', 'types', 'editorial_summary', 'price_level', 'opening_hours', 'reviews'],
-                };
-
-                service.getDetails(detailRequest, (placeDetails: any, detailStatus: any) => {
-                  if (detailStatus === google.maps.places.PlacesServiceStatus.OK && placeDetails) {
-                    // Merge additional details with original result
-                    detailResolve({ ...place, ...placeDetails });
-                  } else {
-                    detailResolve(place);
-                  }
-                });
               });
             });
+          });
 
-            Promise.all(detailPromises).then((enrichedResults) => {
-              resolve(enrichedResults);
-            });
-          } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-            resolve([]);
-          } else {
-            reject(new Error(`PlacesService error: ${status}. Make sure "Places API" (legacy) is enabled in Google Cloud Console.`));
-          }
+          return Promise.all(detailPromises);
+        };
+
+        searchTypes.forEach((type) => {
+          const request: google.maps.places.PlaceSearchRequest = {
+            location,
+            radius: 500,
+            type: type as any,
+          };
+
+          service.nearbySearch(request, (results: any, status: any) => {
+            if (hasError) return;
+
+            if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+              allResults.push(...results);
+            } else if (status !== google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+              hasError = true;
+              reject(new Error(`PlacesService error: ${status}. Make sure "Places API" (legacy) is enabled in Google Cloud Console.`));
+              return;
+            }
+
+            completedSearches++;
+            if (completedSearches === searchTypes.length) {
+              // Remove duplicates based on place_id
+              const uniqueResults = Array.from(
+                new Map(allResults.map((place) => [place.place_id, place])).values()
+              );
+
+              processResults(uniqueResults).then((enrichedResults) => {
+                resolve(enrichedResults);
+              });
+            }
+          });
         });
       });
     }

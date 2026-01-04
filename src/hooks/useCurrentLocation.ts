@@ -5,7 +5,7 @@ export interface Coordinates {
   lng: number;
 }
 
-export function useCurrentLocation() {
+export const useCurrentLocation = () => {
   const [location, setLocation] = useState<Coordinates | null>(null);
   const [error, setError] = useState<string | null>(null);
 

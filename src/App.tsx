@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { useCurrentLocation } from './hooks/useCurrentLocation';
 import { fetchNearbyRestaurants } from './lib/fetchPlaces';
 
-function App() {
+const App = () => {
   const { location, error: locationError } = useCurrentLocation();
   const [places, setPlaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedPlaceId, setExpandedPlaceId] = useState<string | null>(null);
+  const [locationName, setLocationName] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<'all' | 'restaurant' | 'cafe'>('all');
+  const [minRating, setMinRating] = useState<4.0 | 4.5>(4.5);
 
   const loadPlaces = async () => {
     if (!location) return;
@@ -17,15 +20,22 @@ function App() {
       const results = await fetchNearbyRestaurants({
         lat: location.lat,
         lng: location.lng,
-      });
+      }, filterType);
 
-      // Filter high-rating restaurants (heuristic for Michelin)
-      // The new API should return places with rating information
+      // Filter by minimum rating
       const filtered = results.filter((p: any) => {
         const rating = p.rating || (p.rating && typeof p.rating === 'number' ? p.rating : undefined);
-        return rating !== undefined && rating >= 4.5;
+        return rating !== undefined && rating >= minRating;
       });
-      setPlaces(filtered);
+      
+      // Sort by rating (highest to lowest)
+      const sorted = filtered.sort((a: any, b: any) => {
+        const ratingA = a.rating || 0;
+        const ratingB = b.rating || 0;
+        return ratingB - ratingA; // Descending order (highest first)
+      });
+      
+      setPlaces(sorted);
     } catch (e: any) {
       setError(e.message || 'Failed to fetch places');
     } finally {
@@ -33,12 +43,48 @@ function App() {
     }
   };
 
-  // Fetch places on first load
+  // Get location name from coordinates
+  useEffect(() => {
+    if (!location || !window.google?.maps) return;
+
+    const geocoder = new google.maps.Geocoder();
+    geocoder.geocode(
+      { location: { lat: location.lat, lng: location.lng } },
+      (results, status) => {
+        if (status === 'OK' && results && results.length > 0) {
+          // Try to get locality (city/town) or sublocality, fallback to formatted address
+          const result = results[0];
+          const locality = result.address_components.find((component: any) =>
+            component.types.includes('locality')
+          );
+          const sublocality = result.address_components.find((component: any) =>
+            component.types.includes('sublocality') || component.types.includes('sublocality_level_1')
+          );
+          
+          if (locality) {
+            setLocationName(locality.long_name);
+          } else if (sublocality) {
+            setLocationName(sublocality.long_name);
+          } else if (result.formatted_address) {
+            // Fallback to first part of formatted address
+            const parts = result.formatted_address.split(',');
+            setLocationName(parts[0] || 'your location');
+          } else {
+            setLocationName('your location');
+          }
+        } else {
+          setLocationName('your location');
+        }
+      }
+    );
+  }, [location]);
+
+  // Fetch places on first load or when filter changes
   useEffect(() => {
     if (location) {
       loadPlaces();
     }
-  }, [location]);
+  }, [location, filterType, minRating]);
 
   if (locationError) return <div>{locationError}</div>;
   if (!location) return <div>Getting your location…</div>;
@@ -48,9 +94,45 @@ function App() {
   return (
     <div style={{ padding: 16 }}>
       <h1>Top Restaurants Nearby</h1>
-      <button onClick={loadPlaces} style={{ marginBottom: 16 }}>
-        Refresh Location
-      </button>
+      {locationName && (
+        <div style={{ color: '#666', marginTop: 4, marginBottom: 16 }}>
+          Restaurants near {locationName}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
+        <button onClick={loadPlaces}>
+          Refresh Location
+        </button>
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value as 'all' | 'restaurant' | 'cafe')}
+          style={{
+            padding: '6px 12px',
+            fontSize: '14px',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          <option value="all">All</option>
+          <option value="restaurant">Restaurants</option>
+          <option value="cafe">Cafes</option>
+        </select>
+        <select
+          value={minRating}
+          onChange={(e) => setMinRating(parseFloat(e.target.value) as 4.0 | 4.5)}
+          style={{
+            padding: '6px 12px',
+            fontSize: '14px',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          <option value="4.5">4.5+ Rating</option>
+          <option value="4.0">4.0+ Rating</option>
+        </select>
+      </div>
       {places.length === 0 && <div>No high-rated restaurants nearby</div>}
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {places.map((p: any) => {
@@ -121,7 +203,7 @@ function App() {
                 <strong>{name}</strong>
               </div>
               <div style={{ marginTop: 4 }}>
-                ⭐ {rating} ({reviewCount} reviews) — {address}
+                ⭐ {rating} ({reviewCount} reviews)
               </div>
               {hasReviews && (
                 <div className="reviews-section" style={{ marginTop: 12 }}>
@@ -132,15 +214,15 @@ function App() {
                       border: 'none',
                       color: '#0066cc',
                       cursor: 'pointer',
-                      padding: '4px 0',
+                      padding: '8px 4px',
                       fontSize: '0.9em',
-                      textDecoration: 'underline'
+                      textDecoration: 'none'
                     }}
                   >
-                    {isExpanded ? 'Hide' : 'Show'} Reviews ({displayReviews.length})
+                    {isExpanded ? 'Hide' : 'Show'} reviews
                   </button>
                   {isExpanded && (
-                    <div style={{ marginTop: 8, paddingLeft: 8, borderLeft: '2px solid #ddd' }}>
+                    <div style={{ marginTop: 8, paddingLeft: 16, paddingRight: 16, paddingTop: 8, paddingBottom: 8, borderLeft: '2px solid #ddd' }}>
                       {displayReviews.map((review: any, idx: number) => (
                         <div key={idx} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: idx < displayReviews.length - 1 ? '1px solid #eee' : 'none' }}>
                           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
