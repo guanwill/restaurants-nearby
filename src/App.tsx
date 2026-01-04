@@ -100,8 +100,8 @@ const App = () => {
         </div>
       )}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-        <button onClick={loadPlaces}>
-          Refresh Location
+        <button onClick={loadPlaces} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          Refresh <i className="bi bi-geo-alt-fill"></i>
         </button>
         <select
           value={filterType}
