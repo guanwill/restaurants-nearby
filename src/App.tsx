@@ -3,13 +3,12 @@ import { useCurrentLocation } from './hooks/useCurrentLocation';
 import { fetchNearbyRestaurants } from './lib/fetchPlaces';
 
 const App = () => {
-  const { location, error: locationError } = useCurrentLocation();
+  const { location, error: locationError, isLoading: locationLoading, retry: retryLocation } = useCurrentLocation();
   const [places, setPlaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedPlaceId, setExpandedPlaceId] = useState<string | null>(null);
-  const [locationName, setLocationName] = useState<string | null>(null);
-  const [filterType, setFilterType] = useState<'all' | 'restaurant' | 'cafe'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'restaurant' | 'cafe'>('restaurant');
   const [minRating, setMinRating] = useState<4.0 | 4.5>(4.5);
 
   const loadPlaces = async () => {
@@ -24,7 +23,7 @@ const App = () => {
 
       // Filter by minimum rating
       const filtered = results.filter((p: any) => {
-        const rating = p.rating || (p.rating && typeof p.rating === 'number' ? p.rating : undefined);
+        const rating = typeof p.rating === 'number' ? p.rating : undefined;
         return rating !== undefined && rating >= minRating;
       });
       
@@ -43,41 +42,6 @@ const App = () => {
     }
   };
 
-  // Get location name from coordinates
-  useEffect(() => {
-    if (!location || !window.google?.maps) return;
-
-    const geocoder = new google.maps.Geocoder();
-    geocoder.geocode(
-      { location: { lat: location.lat, lng: location.lng } },
-      (results, status) => {
-        if (status === 'OK' && results && results.length > 0) {
-          // Try to get locality (city/town) or sublocality, fallback to formatted address
-          const result = results[0];
-          const locality = result.address_components.find((component: any) =>
-            component.types.includes('locality')
-          );
-          const sublocality = result.address_components.find((component: any) =>
-            component.types.includes('sublocality') || component.types.includes('sublocality_level_1')
-          );
-          
-          if (locality) {
-            setLocationName(locality.long_name);
-          } else if (sublocality) {
-            setLocationName(sublocality.long_name);
-          } else if (result.formatted_address) {
-            // Fallback to first part of formatted address
-            const parts = result.formatted_address.split(',');
-            setLocationName(parts[0] || 'your location');
-          } else {
-            setLocationName('your location');
-          }
-        } else {
-          setLocationName('your location');
-        }
-      }
-    );
-  }, [location]);
 
   // Fetch places on first load or when filter changes
   useEffect(() => {
@@ -86,32 +50,173 @@ const App = () => {
     }
   }, [location, filterType, minRating]);
 
-  if (locationError) return <div>{locationError}</div>;
-  if (!location) return <div>Getting your location…</div>;
-  if (loading) return <div>Finding restaurants near you…</div>;
-  if (error) return <div>{error}</div>;
+  if (locationError) return (
+    <div style={{ 
+      padding: 40, 
+      textAlign: 'center', 
+      color: '#d32f2f',
+      fontSize: '16px',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      maxWidth: 600,
+      margin: '0 auto'
+    }}>
+      <div style={{ marginBottom: 20 }}>
+        {locationError}
+      </div>
+      <button
+        onClick={retryLocation}
+        disabled={locationLoading}
+        style={{
+          padding: '12px 24px',
+          fontSize: '16px',
+          backgroundColor: '#d97706',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: locationLoading ? 'not-allowed' : 'pointer',
+          fontWeight: '600',
+          opacity: locationLoading ? 0.6 : 1,
+          transition: 'all 0.2s ease'
+        }}
+        onMouseEnter={(e) => {
+          if (!locationLoading) {
+            e.currentTarget.style.backgroundColor = '#b45309';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!locationLoading) {
+            e.currentTarget.style.backgroundColor = '#d97706';
+          }
+        }}
+      >
+        {locationLoading ? 'Requesting location...' : 'Try Again'}
+      </button>
+      <div style={{ marginTop: 20, fontSize: '14px', color: '#666' }}>
+        <p>To enable location access:</p>
+        <ul style={{ textAlign: 'left', display: 'inline-block', marginTop: 10 }}>
+          <li>Click the location icon in your browser's address bar</li>
+          <li>Select "Allow" for location permissions</li>
+          <li>Refresh the page or click "Try Again" above</li>
+        </ul>
+      </div>
+    </div>
+  );
+  if (!location && locationLoading) return (
+    <div style={{ 
+      padding: 40, 
+      textAlign: 'center', 
+      color: '#666',
+      fontSize: '16px',
+      fontFamily: 'system-ui, -apple-system, sans-serif'
+    }}>
+      Getting your location…
+    </div>
+  );
+  if (loading) return (
+    <div style={{ 
+      padding: 40, 
+      textAlign: 'center', 
+      color: '#d97706',
+      fontSize: '16px',
+      fontFamily: 'system-ui, -apple-system, sans-serif'
+    }}>
+      Finding restaurants near you…
+    </div>
+  );
+  if (error) return (
+    <div style={{ 
+      padding: 40, 
+      textAlign: 'center', 
+      color: '#d32f2f',
+      fontSize: '16px',
+      fontFamily: 'system-ui, -apple-system, sans-serif'
+    }}>
+      {error}
+    </div>
+  );
+
+  const getTitle = () => {
+    switch (filterType) {
+      case 'restaurant': return 'Top Restaurants Nearby';
+      case 'cafe': return 'Top Cafes Nearby';
+      default: return 'Top Restaurants Nearby';
+    }
+  };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h1>Top Restaurants Nearby</h1>
-      {locationName && (
-        <div style={{ color: '#666', marginTop: 4, marginBottom: 16 }}>
-          Restaurants near {locationName}
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-        <button onClick={loadPlaces} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    <div style={{ 
+      padding: '24px 20px',
+      maxWidth: '800px',
+      margin: '0 auto',
+      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      backgroundColor: '#fefefe',
+      minHeight: '100vh'
+    }}>
+      <h1 style={{ 
+        fontSize: '32px',
+        fontWeight: '700',
+        color: '#1a1a1a',
+        marginBottom: '24px',
+        letterSpacing: '-0.5px'
+      }}>
+        {getTitle()}
+      </h1>
+      <div style={{ 
+        display: 'flex', 
+        gap: 12, 
+        alignItems: 'center', 
+        marginBottom: 24,
+        flexWrap: 'wrap'
+      }}>
+        <button 
+          onClick={loadPlaces} 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 6,
+            padding: '10px 16px',
+            backgroundColor: '#d97706',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '600',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 4px rgba(217, 119, 6, 0.2)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#b45309';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+            e.currentTarget.style.boxShadow = '0 4px 8px rgba(217, 119, 6, 0.3)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#d97706';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 2px 4px rgba(217, 119, 6, 0.2)';
+          }}
+        >
           Refresh <i className="bi bi-geo-alt-fill"></i>
         </button>
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value as 'all' | 'restaurant' | 'cafe')}
           style={{
-            padding: '6px 12px',
+            padding: '10px 14px',
             fontSize: '14px',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            cursor: 'pointer'
+            border: '2px solid #e5e7eb',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            backgroundColor: 'white',
+            color: '#1a1a1a',
+            fontWeight: '500',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#d97706';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = '#e5e7eb';
           }}
         >
           <option value="all">All</option>
@@ -119,21 +224,46 @@ const App = () => {
           <option value="cafe">Cafes</option>
         </select>
         <select
-          value={minRating}
-          onChange={(e) => setMinRating(parseFloat(e.target.value) as 4.0 | 4.5)}
+          value={minRating === 4.0 ? "4.0" : "4.5"}
+          onChange={(e) => {
+            const newRating = parseFloat(e.target.value) as 4.0 | 4.5;
+            setMinRating(newRating);
+          }}
           style={{
-            padding: '6px 12px',
+            padding: '10px 14px',
             fontSize: '14px',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            cursor: 'pointer'
+            border: '2px solid #e5e7eb',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            backgroundColor: 'white',
+            color: '#1a1a1a',
+            fontWeight: '500',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = '#d97706';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = '#e5e7eb';
           }}
         >
           <option value="4.5">4.5+ Rating</option>
           <option value="4.0">4.0+ Rating</option>
         </select>
       </div>
-      {places.length === 0 && <div>No high-rated restaurants nearby</div>}
+      {places.length === 0 && (
+        <div style={{
+          padding: '40px 20px',
+          textAlign: 'center',
+          color: '#666',
+          fontSize: '16px',
+          backgroundColor: '#f9fafb',
+          borderRadius: '12px',
+          border: '1px solid #e5e7eb'
+        }}>
+          No high-rated restaurants nearby
+        </div>
+      )}
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {places.map((p: any) => {
           const name = p.displayName?.string || p.displayName || p.name || 'Unknown';
@@ -155,16 +285,19 @@ const App = () => {
           };
           
           const handleRowClick = (e: React.MouseEvent) => {
-            // Don't open maps if clicking on the reviews section
-            if ((e.target as HTMLElement).closest('.reviews-section')) {
+            // Don't open maps if clicking on the reviews section or button
+            const target = e.target as HTMLElement;
+            if (target.closest('.reviews-section') || target.tagName === 'BUTTON' || target.closest('button')) {
               return;
             }
             window.open(getGoogleMapsUrl(), '_blank', 'noopener,noreferrer');
           };
 
           const handleReviewsToggle = (e: React.MouseEvent) => {
+            e.preventDefault();
             e.stopPropagation();
-            setExpandedPlaceId(expandedPlaceId === id ? null : id);
+            const newExpandedId = expandedPlaceId === id ? null : id;
+            setExpandedPlaceId(newExpandedId);
           };
 
           const reviews = p.reviews || [];
@@ -187,61 +320,118 @@ const App = () => {
               onClick={handleRowClick}
               style={{ 
                 marginBottom: 16, 
-                paddingBottom: 16, 
-                borderBottom: '1px solid #eee',
+                padding: '20px',
+                backgroundColor: 'white',
+                border: '1px solid #e5e7eb',
+                borderRadius: '12px',
                 cursor: 'pointer',
-                transition: 'background-color 0.2s ease'
+                transition: 'all 0.2s ease',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#f5f5f5';
+                e.currentTarget.style.backgroundColor = '#fff7ed';
+                e.currentTarget.style.borderColor = '#d97706';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(217, 119, 6, 0.15)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.backgroundColor = 'white';
+                e.currentTarget.style.borderColor = '#e5e7eb';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.05)';
               }}
             >
-              <div>
-                <strong>{name}</strong>
+              <div style={{
+                fontSize: '20px',
+                fontWeight: '700',
+                color: '#1a1a1a',
+                marginBottom: '8px'
+              }}>
+                {name}
               </div>
-              <div style={{ marginTop: 4 }}>
-                ⭐ {rating} ({reviewCount} reviews)
+              <div style={{ 
+                marginTop: 6,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                color: '#666',
+                fontSize: '15px'
+              }}>
+                <span style={{ color: '#f59e0b', fontSize: '18px' }}>⭐</span>
+                <span style={{ fontWeight: '600', color: '#d97706' }}>{rating}</span>
+                <span style={{ color: '#9ca3af' }}>•</span>
+                <span>{reviewCount} reviews</span>
+              </div>
+              <div style={{
+                marginTop: 8,
+                fontSize: '14px',
+                color: '#6b7280'
+              }}>
+                {address}
               </div>
               {hasReviews && (
-                <div className="reviews-section" style={{ marginTop: 12 }}>
+                <div className="reviews-section" style={{ marginTop: 16 }}>
                   <button
+                    type="button"
                     onClick={handleReviewsToggle}
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#0066cc',
+                      color: '#d97706',
                       cursor: 'pointer',
                       padding: '8px 4px',
-                      fontSize: '0.9em',
-                      textDecoration: 'none'
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      textDecoration: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      transition: 'color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#b45309';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = '#d97706';
                     }}
                   >
-                    {isExpanded ? 'Hide' : 'Show'} reviews
+                    {isExpanded ? 'Hide' : 'Show'} reviews <i className="bi bi-chat-dots-fill" style={{ fontSize: '14px' }}></i>
                   </button>
                   {isExpanded && (
-                    <div style={{ marginTop: 8, paddingLeft: 16, paddingRight: 16, paddingTop: 8, paddingBottom: 8, borderLeft: '2px solid #ddd' }}>
+                    <div style={{ 
+                      marginTop: 12, 
+                      paddingLeft: 20, 
+                      paddingRight: 20, 
+                      paddingTop: 16, 
+                      paddingBottom: 16, 
+                      borderLeft: '3px solid #fbbf24',
+                      backgroundColor: '#fffbeb',
+                      borderRadius: '8px'
+                    }}>
                       {displayReviews.map((review: any, idx: number) => (
-                        <div key={idx} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: idx < displayReviews.length - 1 ? '1px solid #eee' : 'none' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                            <div style={{ fontWeight: 'bold', marginRight: 8 }}>
+                        <div key={idx} style={{ 
+                          marginBottom: 16, 
+                          paddingBottom: 16, 
+                          borderBottom: idx < displayReviews.length - 1 ? '1px solid #fde68a' : 'none' 
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                            <div style={{ fontWeight: '700', fontSize: '15px', color: '#1a1a1a' }}>
                               {review.author_name || 'Anonymous'}
                             </div>
                             {review.rating && (
-                              <div style={{ color: '#666' }}>
-                                {'⭐'.repeat(Math.round(review.rating))} {review.rating}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#f59e0b' }}>
+                                <span style={{ fontSize: '14px' }}>{'⭐'.repeat(Math.round(review.rating))}</span>
+                                <span style={{ fontWeight: '600', color: '#d97706' }}>{review.rating}</span>
                               </div>
                             )}
                             {review.relative_time_description && (
-                              <div style={{ marginLeft: 'auto', fontSize: '0.85em', color: '#999' }}>
+                              <div style={{ marginLeft: 'auto', fontSize: '13px', color: '#9ca3af' }}>
                                 {review.relative_time_description}
                               </div>
                             )}
                           </div>
                           {review.text && (
-                            <div style={{ fontSize: '0.9em', color: '#333', lineHeight: '1.5' }}>
+                            <div style={{ fontSize: '14px', color: '#374151', lineHeight: '1.6' }}>
                               {review.text}
                             </div>
                           )}

@@ -1,132 +1,210 @@
 export const fetchNearbyRestaurants = async (location: google.maps.LatLngLiteral, filterType: 'all' | 'restaurant' | 'cafe' = 'all'): Promise<any[]> => {
-    if (!window.google?.maps?.places) {
-      throw new Error('Google Maps Places API not loaded. Make sure the script is loaded correctly.');
+    // Get API key from environment variable
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    
+    if (!apiKey) {
+      throw new Error('Google Maps API key is not configured. Please set VITE_GOOGLE_MAPS_API_KEY in your environment variables.');
     }
 
-    const placesApi = window.google.maps.places as any;
+    // Use the new Places API (New) - REST API endpoint
+    // The new API uses specific type constants
+    // For 'all' filter, we'll make separate requests for restaurants and cafes to ensure we get both
+    const includedTypes = filterType === 'all' 
+      ? ['restaurant'] // Will make separate call for cafes too
+      : filterType === 'restaurant'
+      ? ['restaurant']
+      : ['cafe'];
     
-    // First, try the new Places API (New) searchNearby
-    // Note: The new API might not be available in the JS SDK yet, or might require different setup
-    if (typeof placesApi.searchNearby === 'function') {
-      const includedTypes = filterType === 'all' 
-        ? ['restaurant', 'cafe']
-        : filterType === 'restaurant'
-        ? ['restaurant']
-        : ['cafe'];
-      
-      const request = {
-        includedTypes,
-        maxResultCount: 20,
-        locationRestriction: {
-          center: location,
-          radius: 500,
+    // Map the location format - new API expects latitude/longitude in a specific format
+    const locationRestriction = {
+      circle: {
+        center: {
+          latitude: location.lat,
+          longitude: location.lng,
         },
-        fields: ['id', 'displayName', 'formattedAddress', 'rating', 'userRatingCount', 'types', 'primaryType'],
+        radius: 1000.0, // in meters
+      },
+    };
+
+    // Field mask for the fields we want to retrieve
+    // CRITICAL: For Nearby Search (New), all fields must be prefixed with 'places.'
+    const fieldMask = [
+      'places.displayName',
+      'places.formattedAddress',
+      'places.types',
+      'places.rating',
+      'places.userRatingCount',
+      'places.primaryType',
+      'places.reviews',
+    ].join(',');
+
+    // Helper function to map a place from API response to app format
+    const mapPlace = (place: any) => {
+      const placeId = place.name ? place.name.replace('places/', '') : null;
+      
+      // Handle displayName - new API returns { text: "..." }
+      let mappedDisplayName: any = place.displayName;
+      if (place.displayName && typeof place.displayName === 'object' && place.displayName.text) {
+        mappedDisplayName = {
+          ...place.displayName,
+          string: place.displayName.text
+        };
+      } else if (typeof place.displayName === 'string') {
+        mappedDisplayName = place.displayName;
+      }
+      
+      // Map reviews to match app expectations
+      const mappedReviews = place.reviews ? place.reviews.map((review: any) => {
+        const authorName = review.authorDisplayName || 
+                         review.authorAttribution?.displayName || 
+                         review.authorAttribution?.uri?.split('/').pop() || 
+                         'Anonymous';
+        
+        let relativeTime = '';
+        if (review.publishTime) {
+          const publishDate = new Date(review.publishTime.seconds * 1000 || review.publishTime);
+          const now = new Date();
+          const diffMs = now.getTime() - publishDate.getTime();
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          
+          if (diffDays === 0) relativeTime = 'Today';
+          else if (diffDays === 1) relativeTime = 'Yesterday';
+          else if (diffDays < 7) relativeTime = `${diffDays} days ago`;
+          else if (diffDays < 30) relativeTime = `${Math.floor(diffDays / 7)} weeks ago`;
+          else if (diffDays < 365) relativeTime = `${Math.floor(diffDays / 30)} months ago`;
+          else relativeTime = `${Math.floor(diffDays / 365)} years ago`;
+        }
+        
+        return {
+          author_name: authorName,
+          rating: review.rating,
+          relative_time_description: relativeTime || review.relativeTimeDescription,
+          text: review.text?.text || review.text || '',
+          time: review.publishTime?.seconds || review.publishTime || 0,
+        };
+      }) : [];
+      
+      return {
+        ...place,
+        displayName: mappedDisplayName,
+        reviews: mappedReviews,
+        id: place.name || placeId,
+        place_id: placeId,
+      };
+    };
+
+    // Helper function to make a single API request
+    const makeRequest = async (types: string[]): Promise<any[]> => {
+      const requestBody: any = {
+        includedTypes: types,
+        maxResultCount: 20,
+        locationRestriction: locationRestriction,
       };
 
-      return new Promise<any[]>((resolve, reject) => {
-        placesApi.searchNearby(request, (results: any, status: any) => {
-          if (status === 'OK' && results?.places) {
-            resolve(results.places);
-          } else if (status === 'ZERO_RESULTS') {
-            resolve([]);
-          } else {
-            reject(new Error(`Places API (New) error: ${status}`));
+      const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': fieldMask,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: { message: response.statusText } };
+        }
+        
+        console.error('Places API (New) error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorData,
+          requestBody: requestBody,
+        });
+        
+        const errorMessage = errorData.error?.message || errorData.message || response.statusText;
+        throw new Error(
+          `Places API (New) error: ${response.status} - ${errorMessage}. ` +
+          `Make sure "Places API (New)" is enabled in Google Cloud Console and your API key has the correct permissions.`
+        );
+      }
+
+      const data = await response.json();
+      
+      if (data.places && Array.isArray(data.places)) {
+        // Map the response to be compatible with the app
+        let mappedPlaces = data.places.map((place: any) => {
+          return mapPlace(place);
+        });
+        
+        // Filter out places with hair-related types (hair_salon, hair_care, etc.)
+        const hairTypes = ['hair_salon', 'hair_care', 'beauty_salon', 'spa'];
+        mappedPlaces = mappedPlaces.filter((place: any) => {
+          const types = place.types || [];
+          const primaryType = place.primaryType;
+          
+          // Exclude if it has any hair-related type
+          const hasHairType = hairTypes.some(hairType => 
+            types.includes(hairType) || primaryType === hairType
+          );
+          
+          return !hasHairType;
+        });
+        
+        return mappedPlaces;
+      } else if (data.error) {
+        throw new Error(`Places API (New) error: ${data.error.message || 'Unknown error'}`);
+      } else {
+        // No results
+        return [];
+      }
+    };
+
+    try {
+      let allPlaces: any[] = [];
+      const seenPlaceIds = new Set<string>();
+
+      if (filterType === 'all') {
+        // For 'all' filter, make separate requests for restaurants and cafes
+        // This ensures we get a good mix of both types
+        const [restaurants, cafes] = await Promise.all([
+          makeRequest(['restaurant']),
+          makeRequest(['cafe']),
+        ]);
+
+        // Combine and deduplicate results
+        [...restaurants, ...cafes].forEach((place: any) => {
+          const placeId = place.place_id || place.id;
+          if (placeId && !seenPlaceIds.has(placeId)) {
+            seenPlaceIds.add(placeId);
+            allPlaces.push(place);
+          } else if (!placeId) {
+            // Include places without IDs (shouldn't happen, but just in case)
+            allPlaces.push(place);
           }
         });
-      });
+
+        console.log(`Combined ${allPlaces.length} unique places (${restaurants.length} restaurants, ${cafes.length} cafes)`);
+      } else {
+        // For specific filters, make a single request
+        allPlaces = await makeRequest(includedTypes);
+        console.log(`Found ${allPlaces.length} places`);
+      }
+
+      return allPlaces;
+    } catch (error: any) {
+      // Re-throw if it's already our formatted error
+      if (error.message && error.message.includes('Places API (New)')) {
+        throw error;
+      }
+      // Handle network errors or other issues
+      console.error('Failed to fetch places:', error);
+      throw new Error(`Failed to fetch places: ${error.message || 'Unknown error'}`);
     }
-    
-    // Fallback to legacy PlacesService if new API is not available
-    // This requires "Places API" (legacy) to be enabled in Google Cloud Console
-    if (typeof placesApi.PlacesService === 'function') {
-      return new Promise<any[]>((resolve, reject) => {
-        const map = new google.maps.Map(document.createElement('div'));
-        const service = new placesApi.PlacesService(map);
-
-        // Search for restaurants and/or cafes based on filter (legacy API requires separate calls)
-        const searchTypes = filterType === 'all' 
-          ? ['restaurant', 'cafe']
-          : filterType === 'restaurant'
-          ? ['restaurant']
-          : ['cafe'];
-        const allResults: any[] = [];
-        let completedSearches = 0;
-        let hasError = false;
-
-        const processResults = (results: any[]) => {
-          // Fetch additional details for each place to get more information
-          // Note: This makes additional API calls, but provides more detailed data
-          const detailPromises = results.map((place: any) => {
-            return new Promise<any>((detailResolve) => {
-              if (!place.place_id) {
-                detailResolve(place);
-                return;
-              }
-              
-              const detailRequest = {
-                placeId: place.place_id,
-                fields: ['name', 'rating', 'user_ratings_total', 'formatted_address', 'vicinity', 'types', 'editorial_summary', 'price_level', 'opening_hours', 'reviews'],
-              };
-
-              service.getDetails(detailRequest, (placeDetails: any, detailStatus: any) => {
-                if (detailStatus === google.maps.places.PlacesServiceStatus.OK && placeDetails) {
-                  // Merge additional details with original result
-                  detailResolve({ ...place, ...placeDetails });
-                } else {
-                  detailResolve(place);
-                }
-              });
-            });
-          });
-
-          return Promise.all(detailPromises);
-        };
-
-        searchTypes.forEach((type) => {
-          const request: google.maps.places.PlaceSearchRequest = {
-            location,
-            radius: 500,
-            type: type as any,
-          };
-
-          service.nearbySearch(request, (results: any, status: any) => {
-            if (hasError) return;
-
-            if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-              allResults.push(...results);
-            } else if (status !== google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-              hasError = true;
-              reject(new Error(`PlacesService error: ${status}. Make sure "Places API" (legacy) is enabled in Google Cloud Console.`));
-              return;
-            }
-
-            completedSearches++;
-            if (completedSearches === searchTypes.length) {
-              // Remove duplicates based on place_id
-              const uniqueResults = Array.from(
-                new Map(allResults.map((place) => [place.place_id, place])).values()
-              );
-
-              processResults(uniqueResults).then((enrichedResults) => {
-                resolve(enrichedResults);
-              });
-            }
-          });
-        });
-      });
-    }
-    
-    // If neither is available, log what's available and throw helpful error
-    console.log('Available on google.maps.places:', Object.keys(placesApi));
-    console.log('Type of placesApi:', typeof placesApi);
-    
-    throw new Error(
-      'Neither Places API (New) nor PlacesService is available. ' +
-      'Please enable one of the following in Google Cloud Console: ' +
-      '1. "Places API (New)" for the new API, or ' +
-      '2. "Places API" (legacy) for PlacesService. ' +
-      'Check the browser console for available methods.'
-    );
   }
   
