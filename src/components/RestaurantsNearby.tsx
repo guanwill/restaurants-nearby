@@ -254,11 +254,12 @@ const RestaurantsNearby = () => {
         </select>
       </div>
       <div style={{
-        fontSize: '12px',
-        color: '#999',
-        marginTop: '-16px',
+        fontSize: '13px',
+        color: '#666',
+        marginTop: '-14px',
         marginBottom: '24px',
-        fontStyle: 'italic',
+        fontStyle: 'normal',
+        fontWeight: '400',
       }}>
         Distance: ~1.0km radius
       </div>
