@@ -29,6 +29,7 @@ export const fetchNearbyRestaurants = async (location: google.maps.LatLngLiteral
     // Field mask for the fields we want to retrieve
     // CRITICAL: For Nearby Search (New), all fields must be prefixed with 'places.'
     const fieldMask = [
+      'places.name',
       'places.displayName',
       'places.formattedAddress',
       'places.types',
@@ -60,9 +61,11 @@ export const fetchNearbyRestaurants = async (location: google.maps.LatLngLiteral
                          review.authorAttribution?.uri?.split('/').pop() || 
                          'Anonymous';
         
-        let relativeTime = '';
-        if (review.publishTime) {
-          const publishDate = new Date(review.publishTime.seconds * 1000 || review.publishTime);
+        // Use the API's relativePublishTimeDescription if available, otherwise calculate it
+        let relativeTime = review.relativePublishTimeDescription || '';
+        if (!relativeTime && review.publishTime) {
+          // Fallback: calculate relative time from publishTime
+          const publishDate = new Date(review.publishTime);
           const now = new Date();
           const diffMs = now.getTime() - publishDate.getTime();
           const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -75,12 +78,19 @@ export const fetchNearbyRestaurants = async (location: google.maps.LatLngLiteral
           else relativeTime = `${Math.floor(diffDays / 365)} years ago`;
         }
         
+        // Extract timestamp for sorting (convert ISO string to Unix timestamp in seconds)
+        let time = 0;
+        if (review.publishTime) {
+          const publishDate = new Date(review.publishTime);
+          time = Math.floor(publishDate.getTime() / 1000); // Convert to Unix timestamp in seconds
+        }
+        
         return {
           author_name: authorName,
           rating: review.rating,
-          relative_time_description: relativeTime || review.relativeTimeDescription,
+          relative_time_description: relativeTime,
           text: review.text?.text || review.text || '',
-          time: review.publishTime?.seconds || review.publishTime || 0,
+          time: time,
         };
       }) : [];
       

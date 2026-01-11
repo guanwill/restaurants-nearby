@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { MouseEvent } from 'react';
 import { useCurrentLocation } from '../hooks/useCurrentLocation';
 import { fetchNearbyRestaurants } from '../lib/fetchPlaces';
 
@@ -248,9 +249,18 @@ const RestaurantsNearby = () => {
             e.currentTarget.style.borderColor = '#e5e7eb';
           }}
         >
-          <option value="4.5">4.5+ Rating</option>
-          <option value="4.0">4.0+ Rating</option>
+          <option value="4.5">4.5+</option>
+          <option value="4.0">4.0+</option>
         </select>
+      </div>
+      <div style={{
+        fontSize: '12px',
+        color: '#999',
+        marginTop: '-16px',
+        marginBottom: '24px',
+        fontStyle: 'italic',
+      }}>
+        Distance: ~1.0km radius
       </div>
       {places.length === 0 && (
         <div style={{
@@ -285,7 +295,7 @@ const RestaurantsNearby = () => {
             return `https://www.google.com/maps/search/?api=1&query=${query}`;
           };
           
-          const handleRowClick = (e: React.MouseEvent) => {
+          const handleRowClick = (e: MouseEvent<HTMLLIElement>) => {
             // Don't open maps if clicking on the reviews section or button
             const target = e.target as HTMLElement;
             if (target.closest('.reviews-section') || target.tagName === 'BUTTON' || target.closest('button')) {
@@ -294,9 +304,7 @@ const RestaurantsNearby = () => {
             window.open(getGoogleMapsUrl(), '_blank', 'noopener,noreferrer');
           };
 
-          const handleReviewsToggle = (e: React.MouseEvent) => {
-            e.preventDefault();
-            e.stopPropagation();
+          const handleReviewsToggle = () => {
             const newExpandedId = expandedPlaceId === id ? null : id;
             setExpandedPlaceId(newExpandedId);
           };
@@ -374,7 +382,12 @@ const RestaurantsNearby = () => {
                 <div className="reviews-section" style={{ marginTop: 16 }}>
                   <button
                     type="button"
-                    onClick={handleReviewsToggle}
+                    onClick={(e) => {
+                      console.log('Button clicked!', id);
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleReviewsToggle();
+                    }}
                     style={{
                       background: 'none',
                       border: 'none',
@@ -387,7 +400,7 @@ const RestaurantsNearby = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: 6,
-                      transition: 'color 0.2s ease'
+                      transition: 'color 0.2s ease',
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.color = '#b45309';

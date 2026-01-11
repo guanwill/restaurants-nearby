@@ -63,7 +63,6 @@ const MichelinNearby = () => {
     try {
       // Fetch all Michelin restaurants
       const allRestaurants = await fetchMichelinRestaurants();
-      console.log('All Michelin restaurants:', allRestaurants);
 
       // Filter by distance
       let nearby = filterNearbyMichelinRestaurants(
