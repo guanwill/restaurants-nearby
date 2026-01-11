@@ -204,6 +204,12 @@ const MichelinNearby = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  // Extract number of stars from Award text (e.g., "1 Star" -> 1, "2 Stars" -> 2, "3 Stars" -> 3)
+  const getStarCount = (award: string): number => {
+    const match = award.match(/\b([123])\s*Star/i);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
   return (
     <div
       style={{
@@ -211,7 +217,7 @@ const MichelinNearby = () => {
         maxWidth: '800px',
         margin: '0 auto',
         fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-        backgroundColor: '#fefefe',
+        backgroundColor: '#ffffff',
         minHeight: '100vh',
       }}
     >
@@ -230,7 +236,7 @@ const MichelinNearby = () => {
         fontSize: '18px',
         fontWeight: '500',
         color: '#666',
-        marginBottom: '24px',
+        marginBottom: '32px',
         marginTop: 0,
       }}>
         Michelin restaurants nearby
@@ -251,30 +257,32 @@ const MichelinNearby = () => {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 6,
-            padding: '10px 16px',
-            backgroundColor: location ? '#d97706' : '#9ca3af',
-            color: 'white',
+            gap: 8,
+            padding: '12px 24px',
+            backgroundColor: location ? '#bd2333' : '#b8a99a',
+            color: '#faf5f3',
             border: 'none',
             borderRadius: '8px',
             cursor: location ? 'pointer' : 'not-allowed',
-            fontSize: '14px',
-            fontWeight: '600',
-            transition: 'all 0.2s ease',
-            boxShadow: location ? '0 2px 4px rgba(217, 119, 6, 0.2)' : 'none',
+            fontSize: '13px',
+            fontWeight: '500',
+            transition: 'all 0.3s ease',
+            boxShadow: location ? '0 4px 12px rgba(189, 35, 51, 0.25)' : 'none',
+            letterSpacing: '0.8px',
+            textTransform: 'uppercase',
           }}
           onMouseEnter={(e) => {
             if (location) {
-              e.currentTarget.style.backgroundColor = '#b45309';
-              e.currentTarget.style.transform = 'translateY(-1px)';
-              e.currentTarget.style.boxShadow = '0 4px 8px rgba(217, 119, 6, 0.3)';
+              e.currentTarget.style.backgroundColor = '#a01e2a';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(189, 35, 51, 0.35)';
             }
           }}
           onMouseLeave={(e) => {
             if (location) {
-              e.currentTarget.style.backgroundColor = '#d97706';
+              e.currentTarget.style.backgroundColor = '#bd2333';
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 2px 4px rgba(217, 119, 6, 0.2)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(189, 35, 51, 0.25)';
             }
           }}
         >
@@ -285,10 +293,11 @@ const MichelinNearby = () => {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            fontSize: '14px',
-            color: '#1a1a1a',
-            fontWeight: '500',
+            gap: 10,
+            fontSize: '13px',
+            color: '#5a3a3a',
+            fontWeight: '400',
+            letterSpacing: '0.3px',
           }}
         >
           Radius:
@@ -301,34 +310,35 @@ const MichelinNearby = () => {
             onChange={(e) => setRadiusKm(parseFloat(e.target.value) || 2)}
             style={{
               padding: '8px 12px',
-              fontSize: '14px',
-              border: '2px solid #e5e7eb',
-              borderRadius: '8px',
-              width: '80px',
-              backgroundColor: 'white',
-              color: '#1a1a1a',
-              fontWeight: '500',
+              fontSize: '13px',
+              border: '1px solid #D4C2BD',
+              borderRadius: '0px',
+              width: '70px',
+              backgroundColor: '#ffffff',
+              color: '#2c1810',
+              fontWeight: '400',
               transition: 'all 0.2s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#d97706';
+              e.currentTarget.style.borderColor = '#8B2635';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#e5e7eb';
+              e.currentTarget.style.borderColor = '#D4C2BD';
             }}
           />
-          <span style={{ color: '#666' }}>km</span>
+          <span style={{ color: '#8B2635', fontSize: '12px' }}>km</span>
         </label>
 
         <label
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
-            fontSize: '14px',
-            color: '#1a1a1a',
-            fontWeight: '500',
+            gap: 10,
+            fontSize: '13px',
+            color: '#5a3a3a',
+            fontWeight: '400',
             cursor: 'pointer',
+            letterSpacing: '0.3px',
           }}
         >
           <input
@@ -339,7 +349,7 @@ const MichelinNearby = () => {
               width: '18px',
               height: '18px',
               cursor: 'pointer',
-              accentColor: '#d97706',
+              accentColor: '#bd2333',
             }}
           />
           <span>⭐ Stars only</span>
@@ -356,9 +366,10 @@ const MichelinNearby = () => {
       >
         <label
           style={{
-            fontSize: '14px',
-            color: '#1a1a1a',
-            fontWeight: '500',
+            fontSize: '13px',
+            color: '#5a3a3a',
+            fontWeight: '400',
+            letterSpacing: '0.2px',
           }}
         >
           Manual Location (optional - leave empty to use current location):
@@ -377,30 +388,31 @@ const MichelinNearby = () => {
           }}
           style={{
             padding: '10px 14px',
-            fontSize: '14px',
-            border: '2px solid #e5e7eb',
-            borderRadius: '8px',
-            backgroundColor: 'white',
-            color: '#1a1a1a',
+            fontSize: '13px',
+            border: '1px solid #D4C2BD',
+            borderRadius: '0px',
+            backgroundColor: '#ffffff',
+            color: '#2c1810',
             fontFamily: 'monospace',
             transition: 'all 0.2s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = '#d97706';
+            e.currentTarget.style.borderColor = '#8B2635';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = '#e5e7eb';
+            e.currentTarget.style.borderColor = '#D4C2BD';
           }}
         />
         {location && (
           <div
             style={{
-              fontSize: '12px',
-              color: '#666',
+              fontSize: '11px',
+              color: '#8B2635',
               fontStyle: 'italic',
+              letterSpacing: '0.2px',
             }}
           >
-            Using: lat: {location.lat.toFixed(7)}, lng: {location.lng.toFixed(7)}
+            Using: lat: {location.lat.toFixed(7)}, lng: {location.lng.toFixed(7)} (eg. 37.5256734, 127.0410846)
           </div>
         )}
       </div>
@@ -408,13 +420,13 @@ const MichelinNearby = () => {
       {restaurants.length === 0 && !loading && (
         <div
           style={{
-            padding: '40px 20px',
+            padding: '48px 32px',
             textAlign: 'center',
-            color: '#666',
-            fontSize: '16px',
-            backgroundColor: '#f9fafb',
-            borderRadius: '12px',
-            border: '1px solid #e5e7eb',
+            color: '#8B2635',
+            fontSize: '15px',
+            backgroundColor: '#ffffff',
+            borderRadius: '0px',
+            border: '1px solid #E8D8D3',
           }}
         >
           No Michelin restaurants found within {radiusKm}km
@@ -427,57 +439,75 @@ const MichelinNearby = () => {
             key={index}
             onClick={() => handleRestaurantClick(restaurant)}
             style={{
-              marginBottom: 16,
-              padding: '20px',
-              backgroundColor: 'white',
-              border: '1px solid #e5e7eb',
-              borderRadius: '12px',
+              marginBottom: 28,
+              padding: '32px 36px',
+              backgroundColor: '#ffffff',
+              border: '1px solid #E8D8D3',
+              borderRadius: '0px',
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 2px 8px rgba(139, 38, 53, 0.08)',
+              position: 'relative',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#fff7ed';
-              e.currentTarget.style.borderColor = '#d97706';
-              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.backgroundColor = '#faf5f3';
+              e.currentTarget.style.borderColor = '#8B2635';
+              e.currentTarget.style.transform = 'translateY(-4px)';
               e.currentTarget.style.boxShadow =
-                '0 4px 12px rgba(217, 119, 6, 0.15)';
+                '0 8px 24px rgba(139, 38, 53, 0.15)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'white';
-              e.currentTarget.style.borderColor = '#e5e7eb';
+              e.currentTarget.style.backgroundColor = '#ffffff';
+              e.currentTarget.style.borderColor = '#E8D8D3';
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.05)';
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(139, 38, 53, 0.08)';
             }}
           >
             <div
               style={{
                 fontSize: '20px',
                 fontWeight: '700',
-                color: '#1a1a1a',
-                marginBottom: '8px',
+                color: '#2c1810',
+                marginBottom: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
               }}
             >
               {restaurant.Name}
+              {restaurant.Award && (() => {
+                const starCount = getStarCount(restaurant.Award);
+                if (starCount > 0) {
+                  return <span>{'⭐'.repeat(starCount)}</span>;
+                }
+                return null;
+              })()}
             </div>
 
             {restaurant.Award && (
               <div
                 style={{
-                  marginTop: 6,
-                  marginBottom: 6,
+                  marginTop: 10,
+                  marginBottom: 14,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 8,
-                  color: '#d97706',
-                  fontSize: '15px',
+                  gap: 14,
+                  fontSize: '14px',
                 }}
               >
-                <span style={{ fontWeight: '600' }}>
+                <span style={{ 
+                  fontWeight: '700',
+                  color: '#bd2333',
+                  letterSpacing: '0.5px',
+                }}>
                   🏆 {restaurant.Award}
                 </span>
                 {restaurant.GreenStar === 1 && (
-                  <span style={{ color: '#10b981', fontWeight: '600' }}>
+                  <span style={{ 
+                    color: '#6b8e6b', 
+                    fontWeight: '500',
+                    letterSpacing: '0.5px',
+                  }}>
                     🌱 Green Star
                   </span>
                 )}
@@ -486,31 +516,33 @@ const MichelinNearby = () => {
 
             <div
               style={{
-                marginTop: 6,
+                marginTop: 12,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 8,
-                color: '#666',
-                fontSize: '15px',
+                gap: 12,
+                color: '#5a3a3a',
+                fontSize: '14px',
               }}
             >
-              <span style={{ color: '#9ca3af' }}>📍</span>
-              <span>
+              <span style={{ color: '#8B2635', fontSize: '12px' }}>📍</span>
+              <span style={{ letterSpacing: '0.2px' }}>
                 {restaurant.distance.toFixed(1)} km away
               </span>
               {restaurant.Price && (
                 <>
-                  <span style={{ color: '#9ca3af' }}>•</span>
-                  <span>{restaurant.Price}</span>
+                  <span style={{ color: '#D4C2BD', margin: '0 6px' }}>•</span>
+                  <span style={{ color: '#8B2635' }}>{restaurant.Price}</span>
                 </>
               )}
             </div>
 
             <div
               style={{
-                marginTop: 8,
+                marginTop: 14,
                 fontSize: '14px',
-                color: '#6b7280',
+                color: '#5a3a3a',
+                lineHeight: '1.7',
+                letterSpacing: '0.1px',
               }}
             >
               {restaurant.Address || restaurant.Location}
@@ -519,9 +551,9 @@ const MichelinNearby = () => {
             {restaurant.Cuisine && (
               <div
                 style={{
-                  marginTop: 8,
+                  marginTop: 12,
                   fontSize: '14px',
-                  color: '#9ca3af',
+                  color: '#666',
                   fontStyle: 'italic',
                 }}
               >

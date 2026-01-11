@@ -48,18 +48,18 @@ const NavigationBar = () => {
         to="/michelin"
         style={{
           textDecoration: 'none',
-          color: isMichelin ? '#d97706' : '#666',
+          color: isMichelin ? '#bd2333' : '#666',
           fontSize: '13px',
           fontWeight: isMichelin ? '600' : '500',
           padding: '4px 10px',
           borderRadius: '4px',
           transition: 'all 0.2s ease',
-          backgroundColor: isMichelin ? '#fff7ed' : 'transparent',
+          backgroundColor: isMichelin ? '#fff5f5' : 'transparent',
         }}
         onMouseEnter={(e) => {
           if (!isMichelin) {
-            e.currentTarget.style.color = '#d97706';
-            e.currentTarget.style.backgroundColor = '#fff7ed';
+            e.currentTarget.style.color = '#bd2333';
+            e.currentTarget.style.backgroundColor = '#fff5f5';
           }
         }}
         onMouseLeave={(e) => {
