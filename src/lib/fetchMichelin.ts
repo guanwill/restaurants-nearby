@@ -53,7 +53,9 @@ function toRad(degrees: number): number {
  */
 export async function fetchMichelinRestaurants(): Promise<MichelinRestaurant[]> {
   try {
-    const response = await fetch('/michelin.csv');
+    // Use import.meta.env.BASE_URL to handle GitHub Pages base path
+    const baseUrl = import.meta.env.BASE_URL;
+    const response = await fetch(`${baseUrl}michelin.csv`);
 
     if (!response.ok) {
       throw new Error(`Failed to fetch CSV: ${response.statusText}`);
