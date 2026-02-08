@@ -1,3 +1,5 @@
+Used AI for development and [michelin-my-maps](https://github.com/ngshiheng/michelin-my-maps) for data
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
