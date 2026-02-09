@@ -300,22 +300,18 @@ const MichelinNearby = () => {
           }}
         >
           Radius:
-          <input
-            type="number"
-            min="0.5"
-            max="50"
-            step="0.5"
+          <select
             value={radiusKm}
-            onChange={(e) => setRadiusKm(parseFloat(e.target.value) || 2)}
+            onChange={(e) => setRadiusKm(parseFloat(e.target.value))}
             style={{
               padding: '8px 12px',
               fontSize: '13px',
               border: '1px solid #D4C2BD',
-              borderRadius: '0px',
-              width: '70px',
+              borderRadius: '8px',
               backgroundColor: '#ffffff',
               color: '#2c1810',
               fontWeight: '400',
+              cursor: 'pointer',
               transition: 'all 0.2s ease',
             }}
             onMouseEnter={(e) => {
@@ -324,8 +320,11 @@ const MichelinNearby = () => {
             onMouseLeave={(e) => {
               e.currentTarget.style.borderColor = '#D4C2BD';
             }}
-          />
-          <span style={{ color: '#8B2635', fontSize: '12px' }}>km</span>
+          >
+            <option value="1">1 km</option>
+            <option value="2">2 km</option>
+            <option value="5">5 km</option>
+          </select>
         </label>
 
         <label
