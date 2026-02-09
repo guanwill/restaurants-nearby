@@ -283,16 +283,12 @@ const RestaurantsNearby = () => {
           const rating = p.rating || 'N/A';
           const reviewCount = p.userRatingCount || p.user_ratings_total || 0;
           const id = p.id || p.place_id || Math.random().toString();
-          const placeId = p.place_id || p.id;
           
           // Generate Google Maps URL
           const getGoogleMapsUrl = (): string => {
-            // Prefer place_id if available (most accurate)
-            if (placeId) {
-              return `https://www.google.com/maps/place/?q=place_id:${placeId}`;
-            }
-            // Fallback to search query with name and address
-            const query = encodeURIComponent(`${name} ${address}`);
+            // Use name and address for better mobile compatibility
+            // This format works more reliably across all devices
+            const query = encodeURIComponent(`${name}, ${address}`);
             return `https://www.google.com/maps/search/?api=1&query=${query}`;
           };
           
