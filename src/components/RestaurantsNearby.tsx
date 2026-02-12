@@ -1,18 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { MouseEvent } from 'react';
 import { useCurrentLocation } from '../hooks/useCurrentLocation';
 import { fetchNearbyRestaurants } from '../lib/fetchPlaces';
 
 const RestaurantsNearby = () => {
   const { location, error: locationError, isLoading: locationLoading, retry: retryLocation } = useCurrentLocation();
+  
+  const handleRefresh = () => {
+    // Re-request location first, then load places
+    retryLocation();
+  };
   const [places, setPlaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedPlaceId, setExpandedPlaceId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'restaurant' | 'cafe'>('restaurant');
-  const [minRating, setMinRating] = useState<4.0 | 4.5>(4.5);
+  const [minRating, setMinRating] = useState<4.2 | 4.5>(4.5);
 
-  const loadPlaces = async () => {
+  const loadPlaces = useCallback(async () => {
     if (!location) return;
     setLoading(true);
     setError(null);
@@ -41,15 +46,15 @@ const RestaurantsNearby = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [location, filterType, minRating]);
 
 
-  // Fetch places on first load or when filter changes
+  // Fetch places on first load or when filter changes or location updates
   useEffect(() => {
-    if (location) {
+    if (location && !locationLoading) {
       loadPlaces();
     }
-  }, [location, filterType, minRating]);
+  }, [location, filterType, minRating, locationLoading, loadPlaces]);
 
   if (locationError) return (
     <div style={{ 
@@ -171,7 +176,7 @@ const RestaurantsNearby = () => {
         flexWrap: 'wrap'
       }}>
         <button 
-          onClick={loadPlaces} 
+          onClick={handleRefresh} 
           style={{ 
             display: 'flex', 
             alignItems: 'center', 
@@ -226,9 +231,9 @@ const RestaurantsNearby = () => {
           <option value="cafe">Cafes</option>
         </select>
         <select
-          value={minRating === 4.0 ? "4.0" : "4.5"}
+          value={minRating === 4.2 ? "4.2" : "4.5"}
           onChange={(e) => {
-            const newRating = parseFloat(e.target.value) as 4.0 | 4.5;
+            const newRating = parseFloat(e.target.value) as 4.2 | 4.5;
             setMinRating(newRating);
           }}
           style={{
@@ -250,7 +255,7 @@ const RestaurantsNearby = () => {
           }}
         >
           <option value="4.5">4.5+</option>
-          <option value="4.0">4.0+</option>
+          <option value="4.2">4.2+</option>
         </select>
       </div>
       <div style={{

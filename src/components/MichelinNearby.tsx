@@ -92,10 +92,10 @@ const MichelinNearby = () => {
   // Load restaurants when current location, radius, or star filter changes (not manual input)
   // Manual input requires pressing Enter to trigger search
   useEffect(() => {
-    if (currentLocation && !manualLocationInput.trim()) {
+    if (currentLocation && !manualLocationInput.trim() && !locationLoading) {
       loadRestaurants();
     }
-  }, [currentLocation, radiusKm, starsOnly]);
+  }, [currentLocation, radiusKm, starsOnly, locationLoading]);
 
   if (locationError && !manualLocationInput)
     return (
@@ -251,7 +251,14 @@ const MichelinNearby = () => {
         }}
       >
         <button
-          onClick={loadRestaurants}
+          onClick={() => {
+            // If using current location (no manual input), re-request location first
+            if (!manualLocationInput.trim()) {
+              retryLocation();
+            } else {
+              loadRestaurants();
+            }
+          }}
           disabled={!location}
           style={{
             display: 'flex',
